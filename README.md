@@ -203,16 +203,40 @@ ArgoCD polls every 3 minutes (webhooks are not available in a local setup).
 
 ---
 
-## Accessing the app (Minikube + Mac Docker driver)
+## Startup sequence (after Docker Desktop restart)
 
-The ingress-nginx controller is patched to `LoadBalancer` type so Minikube tunnel can expose it.
+Run these steps in order every time Docker Desktop or Minikube is restarted:
 
 ```bash
-# Terminal 1 — keep running
-sudo minikube tunnel
+# 1. Start Minikube
+minikube start
 
+# 2. Start Jenkins
+cd /Users/sabav/personalWork/devops-infra
+docker compose up -d
+
+# 3. Start ArgoCD port-forward (keep this terminal open)
+kubectl port-forward svc/argocd-server -n argocd 8090:443
+
+# 4. Start Minikube tunnel — required for LoadBalancer IP (keep this terminal open)
+sudo minikube tunnel
+```
+
+> **Why tunnel?** The ingress-nginx-controller service is type `LoadBalancer`. On Mac with the Docker driver, it only gets an external IP (`127.0.0.1`) while `minikube tunnel` is running. Without it, the service stays `<pending>` and ArgoCD shows the ingress-nginx-controller as **Progressing** indefinitely.
+
+---
+
+## Accessing the app (Minikube + Mac Docker driver)
+
+```bash
 # /etc/hosts — add once
 echo "127.0.0.1 nodejsapp.local" | sudo tee -a /etc/hosts
 ```
 
 Then open **http://nodejsapp.local/my-app** in the browser.
+
+Confirm the tunnel is working:
+```bash
+kubectl get svc -n ingress-nginx ingress-nginx-controller
+# EXTERNAL-IP should show 127.0.0.1, not <pending>
+```
