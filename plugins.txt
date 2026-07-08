@@ -1,6 +1,7 @@
 git
 github
 workflow-aggregator
+workflow-cps
 docker-workflow
 credentials
 credentials-binding
