@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: avrahamatia/sample-nodejs
   pullPolicy: Always
-  tag: "1.0.6"
+  tag: "1.0.7"
 
 service:
   type: ClusterIP
