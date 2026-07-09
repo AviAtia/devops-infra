@@ -178,10 +178,7 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 
 ### Access the UI
 
-```bash
-kubectl port-forward svc/argocd-server -n argocd 8090:443
-# open https://localhost:8090
-```
+The `argocd-server` service is patched to `LoadBalancer` type via `helm/sample-nodejs/templates/argocd-loadbalancer.yaml`, so no port-forward is needed. Open **https://localhost:8090** directly (requires `minikube tunnel` to be running).
 
 Get the initial admin password:
 
@@ -215,14 +212,28 @@ minikube start
 cd /Users/sabav/personalWork/devops-infra
 docker compose up -d
 
-# 3. Start ArgoCD port-forward (keep this terminal open)
-kubectl port-forward svc/argocd-server -n argocd 8090:443
-
-# 4. Start Minikube tunnel — required for LoadBalancer IP (keep this terminal open)
+# 3. Start Minikube tunnel — keep this terminal open
 sudo minikube tunnel
 ```
 
-> **Why tunnel?** The ingress-nginx-controller service is type `LoadBalancer`. On Mac with the Docker driver, it only gets an external IP (`127.0.0.1`) while `minikube tunnel` is running. Without it, the service stays `<pending>` and ArgoCD shows the ingress-nginx-controller as **Progressing** indefinitely.
+- **ArgoCD** → https://localhost:8090
+- **App** → http://nodejsapp.local/my-app
+- **Jenkins** → http://localhost:9090
+
+> **Why tunnel?** Both the ingress-nginx-controller and argocd-server services are type `LoadBalancer`. On Mac with the Docker driver, they only get an external IP (`127.0.0.1`) while `minikube tunnel` is running. Without it, services stay `<pending>` and ArgoCD shows them as **Progressing** indefinitely.
+
+## Shutdown sequence
+
+```bash
+# 1. Stop minikube tunnel — Ctrl+C in the terminal running it
+
+# 2. Stop Jenkins
+cd /Users/sabav/personalWork/devops-infra
+docker compose stop
+
+# 3. Stop Minikube
+minikube stop
+```
 
 ---
 
