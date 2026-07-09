@@ -20,7 +20,6 @@ pipeline {
 
         stage('Helm Lint') {
             steps {
-                sh "helm dependency update ${HELM_CHART}"
                 sh "helm lint ${HELM_CHART}"
             }
         }
