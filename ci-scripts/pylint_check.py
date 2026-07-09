@@ -7,7 +7,7 @@ import sys
 def run(path: str, min_score: float, fail_on_warnings: bool) -> None:
     disable = "C,R" if fail_on_warnings else "C,R,W"
     cmd = [
-        "pylint", path,
+        "python3", "-m", "pylint", path,
         f"--disable={disable}",
         f"--fail-under={min_score}",
     ]
