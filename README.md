@@ -25,11 +25,12 @@ devops-infra/
 │   └── pylint_check.py   # Pylint code quality check
 └── helm/
     └── sample-nodejs/
-        ├── Chart.yaml
-        ├── values.yaml               # Image tag updated automatically by CI
+        ├── Chart.yaml        # includes Prometheus as a dependency
+        ├── Chart.lock        # pins exact Prometheus version
+        ├── values.yaml       # image tag + Prometheus config
         └── templates/
             ├── deployment.yaml
-            ├── service.yaml
+            ├── service.yaml                   # has Prometheus scrape annotations
             ├── ingress.yaml
             ├── configmap.yaml
             ├── ingress-nginx-loadbalancer.yaml
@@ -150,29 +151,61 @@ The `helm/sample-nodejs` chart deploys the Node.js app to Kubernetes.
 | Resource | Details |
 |---|---|
 | Deployment | 1 replica, rolling update, non-root security context |
-| Service | ClusterIP, port 80 → container 8080 |
+| Service | ClusterIP, port 80 → container 8080, Prometheus scrape annotations |
 | Ingress | nginx ingress class, host `nodejsapp.local` |
 | ConfigMap | `PORT=8080` environment variable |
+| Prometheus | Deployed as a chart dependency — scrapes `/metrics` automatically |
 | Ingress-nginx patch | Sets ingress-nginx-controller service to `LoadBalancer` type |
+| ArgoCD patch | Sets argocd-server service to `LoadBalancer` type |
 
 Probes: readiness on `GET /ready`, liveness on `GET /live`.
 
 Resource limits: CPU 250m / Memory 256Mi. Requests: CPU 100m / Memory 128Mi.
+
+### Prometheus
+
+Prometheus is included as a Helm dependency — no separate installation needed. It discovers the app automatically via annotations on the Service:
+
+```yaml
+prometheus.io/scrape: "true"
+prometheus.io/port: "8080"
+prometheus.io/path: "/metrics"
+```
+
+Access the Prometheus UI:
+
+```bash
+kubectl port-forward svc/sample-nodejs-prometheus-server 9090:80
+# open http://localhost:9090
+```
+
+Search for `root_access_total` to see the app's custom metric.
+
+> `charts/` is in `.gitignore` — ArgoCD downloads the prometheus chart automatically at sync time. `Chart.lock` is committed to pin the exact version.
 
 ### Key values
 
 ```yaml
 image:
   repository: avrahamatia/sample-nodejs
-  tag: "1.0.6"          # updated automatically by Jenkins after each merge
+  tag: "1.0.7"          # updated automatically by Jenkins after each merge
 
 ingress:
   host: nodejsapp.local
+
+prometheus:
+  alertmanager:
+    enabled: false       # not needed for local setup
+  server:
+    persistentVolume:
+      enabled: false     # no PV needed in Minikube
 ```
 
 ### Manual deploy (without ArgoCD)
 
 ```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm dependency update helm/sample-nodejs
 helm install sample-nodejs helm/sample-nodejs
 # or upgrade
 helm upgrade sample-nodejs helm/sample-nodejs

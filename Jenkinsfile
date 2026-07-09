@@ -20,13 +20,14 @@ pipeline {
 
         stage('Helm Lint') {
             steps {
+                sh "helm dependency update ${HELM_CHART}"
                 sh "helm lint ${HELM_CHART}"
             }
         }
 
         stage('Helm Validate') {
             steps {
-                sh "helm template ${HELM_CHART} | kubeconform -strict -summary"
+                sh "helm template ${HELM_CHART} | kubeconform -strict -summary -ignore-missing-schemas"
             }
         }
     }
