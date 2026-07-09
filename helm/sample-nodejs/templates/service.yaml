@@ -4,10 +4,6 @@ metadata:
   name: {{ include "sample-nodejs.fullname" . }}
   labels:
     {{- include "sample-nodejs.labels" . | nindent 4 }}
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
-    prometheus.io/path: "/metrics"
 spec:
   type: {{ .Values.service.type }}
   ports:
