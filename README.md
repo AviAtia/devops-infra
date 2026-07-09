@@ -11,16 +11,18 @@ Infrastructure repository for the DevOps challenge. Contains the Jenkins Docker 
 
 ```
 devops-infra/
-├── Dockerfile            # Jenkins image with Docker CLI, kubectl, Helm, Trivy
+├── Dockerfile            # Jenkins image with Docker CLI, kubectl, Helm, Trivy, pylint
 ├── docker-compose.yml    # Runs Jenkins; mounts Docker socket + kubeconfig
 ├── plugins.txt           # Jenkins plugins list (installed at image build time)
+├── Jenkinsfile           # PR gated pipeline for this repo (pylint + helm lint + dry-run)
 ├── ci-scripts/           # Shared CI scripts — cloned by every app pipeline
 │   ├── sast.py           # Semgrep SAST scan
 │   ├── build.py          # Docker build
 │   ├── trivy_scan.py     # Trivy image vulnerability scan
 │   ├── push_image.py     # Docker Hub push
 │   ├── version_bump.py   # Patch version bump + git tag
-│   └── update_helm.py    # Update image tag in any GitOps values.yaml
+│   ├── update_helm.py    # Update image tag in any GitOps values.yaml
+│   └── pylint_check.py   # Pylint code quality check
 └── helm/
     └── sample-nodejs/
         ├── Chart.yaml
@@ -31,6 +33,7 @@ devops-infra/
             ├── ingress.yaml
             ├── configmap.yaml
             ├── ingress-nginx-loadbalancer.yaml
+            ├── argocd-loadbalancer.yaml
             └── _helpers.tpl
 ```
 
@@ -61,6 +64,7 @@ stage('Checkout') {
 | `push_image.py` | Docker Hub login + push | `--image-name`, `--image-tag`, `--username`, `--password` |
 | `version_bump.py` | Bump patch version in `package.json`, commit + tag | `--git-user`, `--git-token`, `--repo` |
 | `update_helm.py` | Update `tag:` in any `values.yaml` and push | `--repo`, `--image-tag`, `--values-path` |
+| `pylint_check.py` | Pylint code quality check | `--path`, `--min-score` (default 7.0), `--fail-on-warnings` |
 
 `update_helm.py` accepts `--values-path` (default: `helm/sample-nodejs/values.yaml`) so it works for any app's Helm chart without modification.
 
@@ -117,12 +121,23 @@ PAT needs `repo` scope on GitHub.
 
 ### Pipelines
 
-| Pipeline | Jenkinsfile | Trigger |
-|---|---|---|
-| PR gated | `sample-nodejs-devops/ci/Jenkinsfile` | SCM polling on open PRs |
-| Post-merge | `sample-nodejs-devops/ci/Jenkinsfile.main` | Commit to `main` |
+| Pipeline | Repo | Jenkinsfile | Trigger |
+|---|---|---|---|
+| App PR gated | `sample-nodejs-devops` | `ci/Jenkinsfile` | SCM polling on open PRs |
+| App post-merge | `sample-nodejs-devops` | `ci/Jenkinsfile.main` | Commit to `main` |
+| Infra PR gated | `devops-infra` | `Jenkinsfile` | SCM polling on open PRs |
 
-Create a **Multibranch Pipeline** in Jenkins pointing to the app repo for both.
+The infra PR pipeline runs three checks on every PR to this repo:
+
+| Stage | What it checks |
+|---|---|
+| Pylint | Code quality on `ci-scripts/` — fails below score 7.0 or on errors |
+| Helm Lint | Chart structure, required fields, YAML syntax |
+| Helm Dry Run | Renders templates and validates against the Kubernetes API schema |
+
+Create a **Multibranch Pipeline** in Jenkins for each repo. Branch protection on `main` in both repos requires the respective status check to pass before merge:
+- `sample-nodejs-devops` → requires `Jenkins CI/PR`
+- `devops-infra` → requires `Jenkins CI/Infra PR`
 
 ---
 
