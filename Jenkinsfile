@@ -24,9 +24,9 @@ pipeline {
             }
         }
 
-        stage('Helm Dry Run') {
+        stage('Helm Validate') {
             steps {
-                sh "helm template ${HELM_CHART} | kubectl apply --dry-run=client -f -"
+                sh "helm template ${HELM_CHART} | kubeconform -strict -summary"
             }
         }
     }
